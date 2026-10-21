@@ -1,0 +1,10 @@
+node_modules/
+dist/
+demo-dist/
+coverage/
+.vite/
+*.tgz
+*.log
+.env
+.env.*
+.npmrc

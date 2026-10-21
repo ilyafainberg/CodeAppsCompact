@@ -1,0 +1,46 @@
+RecordScreen<R,D>(props: RecordScreenProps<R,D>): React.ReactElement
+
+Environment
+React 18, @tanstack/react-query 5, @microsoft/power-apps/data SDK 1.5.0 (IOperationResult is a named, type-only import). Compatible with react-hook-form 7; this implementation uses typed React state and needs no FormProvider. A caller-owned QueryClientProvider is required. The library creates no client, performs no direct network requests, and uses no storage or tenant configuration.
+
+Exports and props
+Field<D>, Column<R>, DataService<R,D>, RecordScreenProps<R,D>, RecordScreen.
+R is caller-defined. D extends Record<string,string|number>: a flat object with own enumerable string keys and ordinary, widened string/number property types; no nested, optional/undefined, null, branded, or literal-refined values. Numeric defaults and toDraft values must be finite. Keep the draft schema and resource identity stable while mounted; remount to change them.
+
+title: h1 text and accessible table name.
+queryKey: readonly unknown[], the infinite-query cache key. Use a distinct key for each resource and do not share it with ordinary useQuery data.
+service: DataService<R,D>, providing getAll(options?:{skipToken?:string}):Promise<IOperationResult<R[]>>, create(draft:D):Promise<IOperationResult<R>>, update(id:string,draft:D):Promise<IOperationResult<R>>.
+fields: readonly Field<D>[], ordered editable controls.
+columns: readonly Column<R>[], ordered table columns. Each has header:string and render:(row:R)=>React.ReactNode. An Actions column with Edit buttons is appended.
+defaults: D, both initial create values and the payload's complete key/type schema. Cancel and committed success restore current defaults. Keys without controls are preserved and their strings are also trimmed before submission.
+getId: (row:R)=>string, stable record identity used for row keys, deduplication, and the original update target. The library never inserts this ID into the draft.
+toDraft: (row:R)=>D, called by Edit; must return exactly the default keys and primitive types.
+searchText: (row:R)=>string, caller-defined searchable text.
+
+Field<D>
+name: Extract<keyof D,string>, an existing own default key; names must be unique and are literal flat keys, not property paths.
+label: accessible input label and validation-message prefix.
+kind: text|email|number|select. Number fields require numeric defaults; other kinds require string defaults. Controls have instance-unique IDs.
+required?: rejects empty or whitespace-only input, but accepts numeric zero.
+maxLength?: nonnegative integer limiting the trimmed input text, including numeric input text.
+min?, max?: finite inclusive numeric bounds; applied to number fields. min must not exceed max.
+options?: readonly string[], required and nonempty for selects; exact, case-sensitive declared values. An undeclared current value is displayed as a disabled placeholder, never silently replaced with the first option.
+
+Validation
+The form is always visible and native validation is disabled. Save trims every string before validation/submission; numeric input is converted to a finite number. Blank numeric input is invalid even when not required: D cannot represent a missing number. Optional blank text/email is allowed. Nonblank email must match /^[^\s@]+@[^\s@]+\.[^\s@]+$/. Select values must belong to options after trimming; blank is valid only when explicitly declared and not required. Validation reports one inline role=alert per invalid field and performs no write. Raw user input remains unchanged on validation or write failure. Payloads contain exactly the default keys and retain their primitive types.
+
+Reads, search, and paging
+Reads use useInfiniteQuery with retry:false, no focus refetch, and local error rendering. getAll initially receives no continuation options. Every operation must report success; successful list data must pass Array.isArray, otherwise a visible diagnostic is raised. Failed operations never become empty successful data.
+A top-level nonempty string skipToken supplies the next request's {skipToken}; absent, null, or empty tokens end pagination. Other token types are errors. Load more appends pages and is disabled during query requests. IDs are deduplicated across pages, retaining the first occurrence before filtering.
+Initial pending reads show role=status "Loading"; next-page requests show "Loading more", not initial loading. Successful loaded data with no visible rows shows "No records". Failures preserve prior pages and display role=alert. Initial/refetch failures offer Retry; next-page failures are retried with the next Load more.
+"Search loaded records" performs case-insensitive substring matching over searchText on loaded, deduplicated rows only. It does not trim the search term, fetch pages, or make requests. The UI explicitly describes this local scope.
+
+Editing and saving
+Edit obtains toDraft and captures the original getId separately. Cancel returns to create defaults without writing. Save calls create in create mode or update with that captured ID in edit mode. Save, fields, Edit, and Cancel are disabled while the mutation is pending; concurrent submissions are guarded.
+Writes use retry:false, require success, and make no optimistic changes. Failure displays the exact Error.message, preserves raw values and the edit target, and permits explicit retry with Save. No connector writes are automatically retried.
+Committed success shows role=status "Saved", resets to create defaults, and invalidates/refetches the exact query key. Refresh failure is a separate read alert: it does not undo the known success or replay the write. Saved remains until the next form interaction. Asynchronous event actions handle rejections explicitly.
+Service Error.message and string message properties are preserved without prefixes; unstructured failures receive an explicit diagnostic.
+
+Configuration and compatibility
+Invalid defaults, duplicate/missing field names, incompatible field/default types, missing select options, and invalid bounds throw explicit configuration errors during rendering; use the caller's error boundary. Invalid toDraft results or thrown edit callbacks are surfaced as form alerts without replacing the existing form.
+Synthetic-service compatibility only; no live-tenant compatibility or validation is claimed. Schema, authentication, permissions, connection IDs, and connector access remain the generated SDK's responsibility.
