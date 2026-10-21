@@ -36,13 +36,13 @@ From this repository:
 npm pack
 ```
 
-The prepack script builds the JavaScript and declarations. The archive is `codeapps-records-0.1.0.tgz`. From a consuming Code App, install the archive using its actual local path, for example:
+The prepack script builds the JavaScript and declarations. The archive is `codeappscompact-0.1.0.tgz`. From a consuming Code App, install the archive using its actual local path, for example:
 
 ```powershell
-npm install --save-exact "C:\path\to\CodeAppsCompact\codeapps-records-0.1.0.tgz"
+npm install --save-exact "C:\path\to\CodeAppsCompact\codeappscompact-0.1.0.tgz"
 ```
 
-The required peers are React, TanStack React Query, and the Power Apps SDK; their supported ranges are in `package.json`. Then import `RecordScreen` and the public types from `@codeapps/records`. The library does not inject styles or create a query client. Use the host application's styling and query provider, and adapt its generated services to the documented service contract.
+The required peers are React, TanStack React Query, and the Power Apps SDK; their supported ranges are in `package.json`. Then import `RecordScreen` and the public types from `codeappscompact`. The library does not inject styles or create a query client. Use the host application's styling and query provider, and adapt its generated services to the documented service contract.
 
 `examples/App.tsx` is a complete configured screen; `examples/main.tsx` demonstrates the query provider, and `examples/service.ts` is the synthetic adapter used by the example and tests. Its strings, including the priority draft field, intentionally use widened primitive types; the select field configuration constrains accepted values.
 
@@ -64,4 +64,4 @@ Build outputs, dependencies, archives, environment files, and npm configuration 
 
 ## Release and licensing status
 
-`private: true` deliberately prevents accidental npm publication. The pilot package name `@codeapps/records` is retained for compatibility; ownership of the `codeapps` npm scope has not been established. Before an npm release, choose a scope with publishing rights, select a license, review the package contents, and explicitly enable publishing. `UNLICENSED` records that no license has been selected; making this repository public does not supply an open-source license.
+`private: true` deliberately prevents accidental npm publication. The npm package name is `codeappscompact` (lowercase, as required by npm). Before an npm release, confirm name availability, select a license, review the package contents, and explicitly enable publishing. `UNLICENSED` records that no license has been selected; making this repository public does not supply an open-source license.

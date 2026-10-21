@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@codeapps/records': resolve(import.meta.dirname, 'src', 'index.tsx'),
+      'codeappscompact': resolve(import.meta.dirname, 'src', 'index.tsx'),
     },
   },
   build: { outDir: 'demo-dist' },

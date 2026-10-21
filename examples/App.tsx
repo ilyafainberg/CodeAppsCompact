@@ -1,4 +1,4 @@
-import { RecordScreen } from '@codeapps/records';
+import { RecordScreen } from 'codeappscompact';
 import { RequestsService, type RequestDraft, type RequestRecord } from './service';
 
 export default function App() {

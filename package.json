@@ -1,5 +1,5 @@
 {
-  "name": "@codeapps/records",
+  "name": "codeappscompact",
   "version": "0.1.0",
   "description": "Experimental schema-configured record screen for Power Apps generated services",
   "private": true,
