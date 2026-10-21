@@ -17,7 +17,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ilyafainberg/codeapps-records.git"
+    "url": "git+https://github.com/ilyafainberg/CodeAppsCompact.git"
   },
   "engines": {
     "node": ">=22.12.0"

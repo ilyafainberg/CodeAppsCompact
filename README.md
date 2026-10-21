@@ -1,4 +1,4 @@
-# Code Apps Records
+# CodeAppsCompact
 
 Experimental React/TypeScript record screens for Power Platform Code Apps. Configure fields, columns, validation, and a service adapter instead of repeatedly implementing list/editor state management.
 
@@ -17,8 +17,8 @@ Supported drafts are flat objects with widened `string` and `number` values. The
 Use Node.js 22.12 or newer; CI uses Node.js 24. The lockfile pins the development dependencies, including React 18 and Power Apps SDK 1.5.0.
 
 ```powershell
-git clone https://github.com/ilyafainberg/codeapps-records.git
-cd codeapps-records
+git clone https://github.com/ilyafainberg/CodeAppsCompact.git
+cd CodeAppsCompact
 npm ci --ignore-scripts --no-audit --no-fund
 npm run typecheck
 npm test
@@ -39,7 +39,7 @@ npm pack
 The prepack script builds the JavaScript and declarations. The archive is `codeapps-records-0.1.0.tgz`. From a consuming Code App, install the archive using its actual local path, for example:
 
 ```powershell
-npm install --save-exact "C:\path\to\codeapps-records\codeapps-records-0.1.0.tgz"
+npm install --save-exact "C:\path\to\CodeAppsCompact\codeapps-records-0.1.0.tgz"
 ```
 
 The required peers are React, TanStack React Query, and the Power Apps SDK; their supported ranges are in `package.json`. Then import `RecordScreen` and the public types from `@codeapps/records`. The library does not inject styles or create a query client. Use the host application's styling and query provider, and adapt its generated services to the documented service contract.
