@@ -4,6 +4,7 @@ demo-dist/
 coverage/
 .vite/
 *.tgz
+!/plugins/codeappscompact/skills/codeappscompact/assets/*.tgz
 *.log
 .env
 .env.*

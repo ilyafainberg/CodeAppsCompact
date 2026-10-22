@@ -4,14 +4,14 @@
     "name": "Ilya Fainberg"
   },
   "metadata": {
-    "description": "CodeAppsCompact: a portable agent skill and GitHub-hosted kit for compact Power Platform Code Apps record screens."
+    "description": "CodeAppsCompact: a self-contained agent skill with a bundled Power Platform Code Apps record-screen kit."
   },
   "plugins": [
     {
       "name": "codeappscompact",
       "source": "./plugins/codeappscompact",
-      "description": "Reuse the record-screen kit; download the pinned GitHub archive only when missing, then configure existing generated services.",
-      "version": "0.1.1",
+      "description": "Configure existing generated services with the included prebuilt kit; no separate kit download or build.",
+      "version": "0.1.2",
       "repository": "https://github.com/ilyafainberg/CodeAppsCompact",
       "license": "MIT",
       "keywords": ["agent-skills", "power-apps", "code-apps", "power-platform", "react", "typescript"]

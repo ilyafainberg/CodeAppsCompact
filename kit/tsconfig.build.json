@@ -5,6 +5,7 @@
     "declaration": true,
     "rootDir": "src",
     "outDir": "dist",
+    "newLine": "lf",
     "types": ["react"]
   },
   "include": ["src"]

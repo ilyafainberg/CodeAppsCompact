@@ -1,7 +1,11 @@
 {
   "name": "codeappscompact",
-  "version": "0.1.1",
-  "compatibleInstalledVersions": ["0.1.0", "0.1.1"],
-  "url": "https://github.com/ilyafainberg/CodeAppsCompact/releases/download/v0.1.1/codeappscompact-0.1.1.tgz",
-  "sha256": "6d598a6c79b5f51e34cc99d0247795ab1c3f5daaff9c25acb093786636529996"
+  "version": "0.1.2",
+  "compatibleInstalledVersions": [
+    "0.1.0",
+    "0.1.1",
+    "0.1.2"
+  ],
+  "archive": "assets/codeappscompact-0.1.2.tgz",
+  "sha256": "49bfd17dbf82bc4cb4b35f8c5fe818d585137042badbffc65c93e0e1bb989b2b"
 }

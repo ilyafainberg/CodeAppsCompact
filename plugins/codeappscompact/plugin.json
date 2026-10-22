@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codeappscompact",
-  "version": "0.1.1",
-  "description": "Build compact Power Platform Code Apps record screens with a reusable kit downloaded from GitHub only when missing.",
+  "version": "0.1.2",
+  "description": "Build compact Power Platform Code Apps record screens using the prebuilt kit bundled with this skill.",
   "author": {
     "name": "Ilya Fainberg"
   },

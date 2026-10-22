@@ -1,7 +1,7 @@
 {
   "name": "codeappscompact",
-  "version": "0.1.1",
-  "description": "GitHub-hosted React/TypeScript record-screen kit for Power Platform Code Apps",
+  "version": "0.1.2",
+  "description": "Bundled React/TypeScript record-screen kit for Power Platform Code Apps",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -28,10 +28,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
+    "test": "npm run build && vitest run",
     "dev": "vite --host 127.0.0.1",
     "build:demo": "vite build",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "bundle:skill": "npm run build && node scripts/bundle-skill.mjs"
   },
   "peerDependencies": {
     "@microsoft/power-apps": "^1.5.0",
