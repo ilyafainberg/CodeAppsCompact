@@ -16,7 +16,27 @@ const plugin = JSON.parse(read(resolve(pluginRoot, 'plugin.json')));
 const kit = JSON.parse(read(resolve(skillRoot, 'references', 'kit.json')));
 const skill = read(resolve(skillRoot, 'SKILL.md'));
 const archive = resolve(skillRoot, kit.archive);
-const packed = (path: string) => execFileSync('tar', ['-xOf', archive, `package/${path}`], { encoding: 'utf8' });
+const entries: { name: string; content: string; attributes: number }[] = JSON.parse(execFileSync('pwsh', [
+  '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', `
+    $ErrorActionPreference = 'Stop'
+    $zip = [IO.Compression.ZipFile]::OpenRead($env:CODEAPPSCOMPACT_ARCHIVE)
+    try {
+      @($zip.Entries | ForEach-Object {
+        $reader = [IO.StreamReader]::new($_.Open())
+        try {
+          [pscustomobject]@{ name = $_.FullName; content = $reader.ReadToEnd(); attributes = $_.ExternalAttributes }
+        }
+        finally { $reader.Dispose() }
+      }) | ConvertTo-Json -Compress
+    }
+    finally { $zip.Dispose() }
+  `,
+], { encoding: 'utf8', env: { ...process.env, CODEAPPSCOMPACT_ARCHIVE: archive } }));
+const packed = (path: string) => {
+  const entry = entries.find(item => item.name === `package/${path}`);
+  if (!entry) throw new Error(`Missing bundled file: ${path}`);
+  return entry.content;
+};
 const normalize = (text: string) => text.replace(/\r\n/g, '\n');
 
 function checkLocalLinks(path: string, boundary?: string): void {
@@ -81,28 +101,41 @@ describe('self-contained skill distribution', () => {
     checkLocalLinks(resolve(kitRoot, 'README.md'));
   });
 
-  it('ships one local archive with a matching digest, not a separate download URL', () => {
+  it('ships one real ZIP with a matching digest, not a separate download URL', () => {
     expect(kit.name).toBe(pkg.name);
     expect(kit.version).toBe(pkg.version);
-    expect(kit.compatibleInstalledVersions).toEqual(['0.1.0', '0.1.1', pkg.version]);
+    expect(kit.compatibleInstalledVersions).toEqual(['0.1.0', '0.1.1', '0.1.2', pkg.version]);
     expect(kit.url).toBeUndefined();
-    expect(kit.archive).toBe(`assets/${pkg.name}-${pkg.version}.tgz`);
-    expect(readdirSync(resolve(skillRoot, 'assets'))).toEqual([`${pkg.name}-${pkg.version}.tgz`]);
+    expect(kit.archive).toBe(`assets/${pkg.name}-${pkg.version}.zip`);
+    expect(readdirSync(resolve(skillRoot, 'assets'))).toEqual([`${pkg.name}-${pkg.version}.zip`]);
+    const bytes = readFileSync(archive);
+    expect([...bytes.subarray(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
     expect(kit.sha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(createHash('sha256').update(readFileSync(archive)).digest('hex')).toBe(kit.sha256);
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(kit.sha256);
   });
 
-  it('includes every consumer asset and excludes maintainer files', () => {
+  it('includes every consumer asset and excludes maintainer files and links', () => {
     const expected = [
       'API.txt', 'LICENSE', 'README.md', 'dist/index.d.ts', 'dist/index.js',
       'examples/App.tsx', 'examples/main.tsx', 'examples/service.ts', 'examples/style.css', 'package.json',
     ];
-    const entries = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' }).trim().split(/\r?\n/).sort();
-    expect(entries).toEqual(expected.map(path => `package/${path}`).sort());
+    expect(entries.map(entry => entry.name).sort()).toEqual(expected.map(path => `package/${path}`).sort());
     expect(JSON.parse(packed('package.json'))).toEqual(pkg);
+    for (const entry of entries) expect((entry.attributes >>> 16) & 0o170000).not.toBe(0o120000);
     for (const path of expected.filter(path => path !== 'package.json')) {
       expect(normalize(packed(path)), path).toBe(normalize(read(resolve(kitRoot, path))));
     }
+  });
+
+  it('documents ZIP extraction, copy installation, and matching clean-restore options', () => {
+    const instructions = read(resolve(skillRoot, 'references', 'install.md'));
+    expect(instructions).toContain('Expand-Archive');
+    expect(instructions).toContain(`".\\vendor\\codeappscompact-${pkg.version}\\package"`);
+    expect(instructions).toContain('npm install --save-exact --install-links --ignore-scripts');
+    expect(instructions).toContain('npm ci --install-links --ignore-scripts');
+    expect(instructions).toContain('local-directory');
+    expect(instructions).not.toMatch(/npm install[^\r\n]*\.zip/);
+    expect(instructions).not.toMatch(/\.tgz|tarball/);
   });
 
   it('includes the same MIT license in repository, kit, and skill', () => {

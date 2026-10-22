@@ -11,7 +11,7 @@
       "name": "codeappscompact",
       "source": "./plugins/codeappscompact",
       "description": "Configure existing generated services with the included prebuilt kit; no separate kit download or build.",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "repository": "https://github.com/ilyafainberg/CodeAppsCompact",
       "license": "MIT",
       "keywords": ["agent-skills", "power-apps", "code-apps", "power-platform", "react", "typescript"]
