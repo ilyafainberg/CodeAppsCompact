@@ -2,7 +2,7 @@
 
 Experimental React/TypeScript record screens for Power Platform Code Apps. Configure fields, columns, validation, and a service adapter instead of repeatedly implementing list/editor state management.
 
-**Status:** version 0.1.0, local-package distribution only. Live Power Apps-host and tenant compatibility remain unverified. This repository is public, but no license has been selected and the package is not published to npm.
+**Status:** version 0.1.0, experimental and MIT-licensed. Live Power Apps-host and tenant compatibility remain unverified. npm publication is pending; use the local package workflow below until the registry release is available.
 
 ## What it does
 
@@ -60,8 +60,18 @@ The reusable implementation is the token-saving mechanism. A dedicated portable 
 - `tests/`: behavior checks and a separate inventory-schema example.
 - `.github/workflows/ci.yml`: type checking, tests, library/demo builds, and package-content preview. No deployment or npm publishing.
 
-Build outputs, dependencies, archives, environment files, and npm configuration are ignored by Git. The npm file allowlist includes `dist` and `API.txt`; npm also includes its standard package metadata and README.
+Build outputs, dependencies, archives, environment files, and npm configuration are ignored by Git. The npm file allowlist includes `dist` and `API.txt`; npm also includes its standard package metadata, README, and LICENSE.
 
 ## Release and licensing status
 
-`private: true` deliberately prevents accidental npm publication. The npm package name is `codeappscompact` (lowercase, as required by npm). Before an npm release, confirm name availability, select a license, review the package contents, and explicitly enable publishing. `UNLICENSED` records that no license has been selected; making this repository public does not supply an open-source license.
+Licensed under the [MIT License](LICENSE), copyright 2026 Ilya Fainberg.
+
+The npm package name is `codeappscompact` (lowercase, as required by npm). Release metadata permits public publication to `https://registry.npmjs.org/` and defaults to the experimental `next` tag rather than `latest`. This configuration does not publish the package by itself.
+
+Before publishing, confirm registry connectivity, npm sign-in, and name/version availability; run the repository checks and review `npm pack --dry-run`. An authorized release uses:
+
+```powershell
+npm publish --access public --tag next --registry=https://registry.npmjs.org/
+```
+
+Do not describe the npm release as available until its registry metadata has been verified.

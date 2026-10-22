@@ -2,8 +2,7 @@
   "name": "codeappscompact",
   "version": "0.1.0",
   "description": "Experimental schema-configured record screen for Power Apps generated services",
-  "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,7 +12,10 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "API.txt"],
+  "files": [
+    "dist",
+    "API.txt"
+  ],
   "sideEffects": false,
   "repository": {
     "type": "git",
@@ -31,9 +33,9 @@
     "prepack": "npm run build"
   },
   "peerDependencies": {
-    "react": ">=18.3.1 <20",
+    "@microsoft/power-apps": "^1.5.0",
     "@tanstack/react-query": ">=5.90.5 <6",
-    "@microsoft/power-apps": "^1.5.0"
+    "react": ">=18.3.1 <20"
   },
   "devDependencies": {
     "@microsoft/power-apps": "1.5.0",
@@ -51,5 +53,10 @@
     "typescript": "5.9.3",
     "vite": "7.2.4",
     "vitest": "3.2.4"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "tag": "next"
   }
 }
