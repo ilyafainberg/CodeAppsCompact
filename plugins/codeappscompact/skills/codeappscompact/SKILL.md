@@ -1,59 +1,50 @@
 ---
 name: codeappscompact
-description: Build or update compact React/TypeScript record-list and create/edit screens in Power Platform Code Apps. Use the prebuilt package in this skill's assets folder; configure fields and a typed service adapter instead of regenerating the component. Not for Canvas Apps, model-driven apps, or deployment.
+description: Build or update compact React/TypeScript record-list and create/edit screens in Power Platform Code Apps. Reuse an installed RecordScreen or set up the package bundled in this skill; configure only the app-specific parts. Not for Canvas Apps, model-driven apps, or deployment.
 license: MIT
-compatibility: Requires an authorized React/TypeScript Code App, Node.js 22.12 or newer, project package tooling, and host-provided local file and execution capabilities. Install the complete skill folder, including assets.
+compatibility: Requires an authorized React/TypeScript Code App, Node.js 22.12 or newer, project package tooling, and host-provided local file and execution capabilities. Install the complete skill folder, including assets and scripts.
 metadata:
-  version: "0.1.6"
+  version: "0.1.7"
 ---
 
 # CodeAppsCompact
 
-Use the existing `RecordScreen`; generate only app-specific configuration, adapters, styling integration, and tests. All kit files are ordinary files in `assets`, relative to the folder containing this `SKILL.md`. No original location, source checkout, download, extraction, or kit build is needed. If the host exposes only skill text or assets are missing, stop and request the complete folder rather than fetching or regenerating a substitute.
+Configure `RecordScreen`, not a new implementation. The package is plain files in `assets`; the setup helper locates them relative to itself. No source checkout, download, extraction, or kit build is needed. Use only authorized host tools and respect every permission decision.
 
-## 1. Check fit
+## 1. Inspect and reuse
 
-Inspect the existing app, dependency manifest/lockfile, query provider, generated services, and acceptance criteria. This skill does not scaffold or publish an app. Report a missing project or service rather than inventing one.
+Inspect the existing app, acceptance criteria, package tooling, query provider, and actual generated service types. This skill does not scaffold or publish an app; report missing inputs rather than inventing them.
 
-Supported: list, search over loaded records, cursor paging, create/edit/cancel, and flat string/number drafts with text/email/number/select fields. Delete, relationships, uploads, nested drafts, server-side search, and cross-system transactions are not supplied. Preserve unsupported requirements and explain the gap.
+Supported: lists, search over loaded records, cursor paging, create/edit/cancel, and flat string/number drafts. Delete, relationships, uploads, nested drafts, server-side search, and cross-system transactions are not supplied; preserve those requirements and explain the gap.
 
-## 2. Reuse or install
+Resolve `codeappscompact` in the app first. If its import works and its own `API.txt` supports the request, reuse it and go to step 3. Do not inspect or copy the bundle just to replace a working installation. If a declared dependency is missing, restore its existing lockfile using the app's workflow; never silently upgrade or replace a different version, origin, or custom package.
 
-Read [assets/package.json](assets/package.json) for the bundled version, Node requirement, and peer dependencies. Resolve `codeappscompact` in the app. Reuse a working installation whose own `API.txt` supports the request. Restore a declared but missing dependency with the existing lockfile; do not silently upgrade or replace another version, origin, or custom package.
+## 2. Set up only when absent
 
-If absent and app changes are authorized, copy the entire `assets` folder into a new versioned directory inside the app, then install that local directory with its existing package manager. For npm, run from the app directory with `$skillRoot` set to the installed folder containing this `SKILL.md`:
+Read [assets/package.json](assets/package.json) for the bundled version and peer requirements. Preserve compatible app dependencies; obtain approval for any missing peers or other dependency changes. Missing bundled files require the complete skill folder, not a fetched or regenerated substitute.
 
-```powershell
-$source = Join-Path $skillRoot 'assets'
-$version = (Get-Content -LiteralPath (Join-Path $source 'package.json') -Raw | ConvertFrom-Json).version
-$destination = ".\vendor\codeappscompact-$version"
-if (Test-Path -LiteralPath $destination) { throw 'Destination exists; inspect before reusing.' }
-New-Item -ItemType Directory -Path '.\vendor' -Force | Out-Null
-Copy-Item -LiteralPath $source -Destination $destination -Recurse -ErrorAction Stop
-npm install --save-exact --install-links --ignore-scripts --no-audit --no-fund $destination
-if ($LASTEXITCODE -ne 0) { throw 'Local package installation failed.' }
+For an authorized standalone npm app, run the [setup helper](scripts/setup.mjs) with the app directory:
+
+```text
+node "<installed-skill-folder>\scripts\setup.mjs" "<app-folder>"
 ```
 
-Keep the complete copied directory, including `dist`, with the app's manifest and lockfile; check ignore rules. Never depend on an absolute path into the skill installation. For npm clean restores use `npm ci --install-links --ignore-scripts --no-audit --no-fund`. Other package managers need equivalent local-directory options; preserve workspace policy and do not add a second lockfile or overwrite an existing destination.
+It copies `assets` to `vendor\codeappscompact-<version>`, installs that local folder with lifecycle scripts disabled and peer checks enforced, and checks the import and relative lockfile paths. An identical existing copy is reused. Modified assets, conflicting declarations, or linked destinations cause an explicit stop, never an overwrite. A failed npm command is reported; inspect its dependency state before retrying.
 
-Ordinary peer dependencies belong to the app and may need its configured registry. Preserve compatible peers and obtain approval for required dependency changes. Use only authorized host tools; never bypass permission decisions, TLS, peer constraints, or registry restrictions. The skill grants no permissions and requires no install hooks.
+The helper does not switch package managers, install tooling, or manage workspaces. For those projects, use their existing approved local-package workflow with the same assets; do not introduce an npm lockfile. Ordinary peer dependencies still belong to the app and may require its configured registry. Never bypass TLS, peer constraints, registry restrictions, or tool permissions.
 
-## 3. Configure, do not regenerate
+## 3. Configure
 
-Read the [bundled API reference](assets/API.txt) directly, or the installed package's own `API.txt` when reusing another version. Read relevant type declarations; load the [synthetic example](assets/examples/App.tsx) only if needed, not the implementation or unrelated connector documentation.
+Read the quick authoring contract at the start of the matching API: the installed package's `API.txt` when reusing it, otherwise the [bundled API reference](assets/API.txt). Consult detailed sections for relevant edge cases, declarations only for unresolved typing questions, and the [synthetic example](assets/examples/App.tsx) only when needed. Do not load the implementation or unrelated connector documentation.
 
-Inspect actual generated service signatures and response types. Write a typed `DataService<R, D>` adapter without invented fields, casts to `any`, or successful empty fallbacks. Preserve failure results, paging tokens, identity, and supported write semantics.
+Use the generated service directly when its types AND behavior satisfy `DataService<R, D>`. Otherwise adapt only mismatches in payloads, results, paging, identity, or method binding. Do not invent fields, cast to `any`, or hide failures behind successful empty results.
 
-Supply fields, columns, defaults, `getId`, `toDraft`, and `searchText`. Draft keys and widened primitive types must match defaults exactly. Reuse the app's stable `QueryClientProvider` with a distinct infinite-query key per resource. Compose `RecordScreen` with existing styles; do not hand-copy it or regenerate SDK services.
+Supply the app-specific configuration described by the API and preserve the app's query provider and styles. Do not copy the component or regenerate SDK services. The app owns SDK setup, authentication, connections, and permissions. Connections, schema changes, production writes, and deployment require separate authorization.
 
-Search covers loaded records only. Writes are not automatically retried; refresh failure must not replay a committed write. The app owns SDK setup, authentication, connections, and permissions. Do not create connections, change schemas, modify production data, or deploy without separate authorization.
+## 4. Verify the changed surface
 
-## 4. Verify and finish
+When installation changes, confirm package resolution/version and project-relative manifest/lockfile paths. Keep the complete vendor package, including `dist`, with the app; review ignore rules and verify a clean restore in an isolated copy without the skill folder. For npm, use `npm ci --install-links --ignore-scripts --strict-peer-deps --legacy-peer-deps=false --force=false --no-audit --no-fund`.
 
-Confirm package resolution, version, `RecordScreen` import, and project-relative dependency/lockfile paths. The copied package must restore without the original skill folder.
+For screen changes, run the app's existing type/build checks and focused integration tests for its mappings, IDs, write payloads, pagination, and error propagation. Do not repeat portability checks or recreate the library's generic tests for each screen. Test writes with synthetic data or an explicitly authorized isolated backend; authorized live reads are needed before claiming connector compatibility.
 
-Run existing type/build checks and focused behavior tests for loading/errors, validation, create/update payloads, paging, and failed-save preservation. Exercise writes only with synthetic data or an explicitly authorized isolated backend. Authorized live reads are needed before claiming connector compatibility.
-
-Correct observed failures and rerun affected checks, with at most two corrective passes. Stop earlier on success, missing access/input, or no viable new approach; never weaken checks. Verify saved files and dependency/lockfile state.
-
-Report kit version, whether reused or copied from the bundle, feature changes, actual checks, data mode, and gaps concisely. Do not claim deployment, live compatibility, or measured token savings from synthetic checks alone.
+Fix observed failures without weakening requirements. Stop on missing access/input or no viable progress. Summarize the feature change, kit version/reuse, data mode, and remaining gaps concisely. Do not claim deployment, live compatibility, or measured token savings from synthetic checks.

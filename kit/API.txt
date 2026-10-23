@@ -1,7 +1,26 @@
+Quick authoring contract
+Import RecordScreen and, when useful, the Field, Column, DataService, and RecordScreenProps types from 'codeappscompact'.
+Define R for a record and D for a flat draft with widened string/number properties. defaults and toDraft(row) must have exactly the same keys and primitive types; numbers must be finite. No optional, null, nested, branded, or literal-refined draft values.
+Inside the app's stable QueryClientProvider, pass these props:
+  title, queryKey (a distinct infinite-query key per resource), service,
+  defaults: D, fields: Field<D>[], columns: Column<R>[],
+  getId: (row:R)=>string, toDraft: (row:R)=>D, searchText: (row:R)=>string.
+Each field has name (a default key), label, and kind: text|email|number|select. Optional validation: required, maxLength, min, max. Number fields need numeric defaults; other fields need strings. Selects need nonempty options:string[]. Each column has header and render:(row:R)=>React.ReactNode; Edit is supplied automatically.
+service must provide:
+  getAll(options?:{skipToken?:string}):Promise<IOperationResult<R[]>>
+  create(draft:D):Promise<IOperationResult<R>>
+  update(id:string,draft:D):Promise<IOperationResult<R>>
+IOperationResult is a type-only import from '@microsoft/power-apps/data'. Every operation reports success; successful lists contain data:R[] and an optional top-level string skipToken. Preserve failed results/errors. Reuse a generated service directly only when its signatures, payloads, result shapes, paging, identity, and method binding meet this contract. Adapt only mismatches; never fabricate successful empty data.
+Save trims strings, validates fields and finite numbers, and sends exactly the draft keys. Blank numeric values are invalid; nonblank email must be valid; selects must use declared options. getId supplies the update target separately from the draft. Keep schema and resource identity stable while mounted.
+Search filters loaded records only. Read/write errors are visible, failed writes retain inputs, and writes are never automatically retried. A successful write resets the form and refreshes reads; a failed refresh does not replay it. The app owns styling, its query provider, generated services, authentication, connections, and deployment. Live Power Apps-host compatibility is unverified.
+Consult the detailed sections below only for relevant edge cases; declarations and examples are optional references.
+
+Detailed reference
+
 RecordScreen<R,D>(props: RecordScreenProps<R,D>): React.ReactElement
 
 Environment
-React 18, @tanstack/react-query 5, @microsoft/power-apps/data SDK 1.5.0 (IOperationResult is a named, type-only import). Compatible with react-hook-form 7; this implementation uses typed React state and needs no FormProvider. A caller-owned QueryClientProvider is required. The library creates no client, performs no direct network requests, and uses no storage or tenant configuration.
+See package.json for supported peer versions. IOperationResult is a named, type-only SDK import. The component uses typed React state and needs no FormProvider. A caller-owned QueryClientProvider is required. The library creates no client, performs no direct network requests, and uses no storage or tenant configuration.
 
 Exports and props
 Field<D>, Column<R>, DataService<R,D>, RecordScreenProps<R,D>, RecordScreen.

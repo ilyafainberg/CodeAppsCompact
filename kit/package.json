@@ -1,6 +1,6 @@
 {
   "name": "codeappscompact",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Bundled React/TypeScript record-screen kit for Power Platform Code Apps",
   "license": "MIT",
   "type": "module",
@@ -27,7 +27,6 @@
     "test": "npm run build && vitest run",
     "dev": "vite --host 127.0.0.1",
     "build:demo": "vite build",
-    "prepack": "npm run build",
     "bundle:skill": "npm run build && cd scripts && pwsh -NoProfile -NonInteractive -File bundle-skill.ps1"
   },
   "peerDependencies": {

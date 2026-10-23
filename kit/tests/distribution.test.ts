@@ -1,6 +1,5 @@
 // @vitest-environment node
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -50,17 +49,6 @@ function checkLocalLinks(path: string, boundary?: string): void {
   }
 }
 
-function checkPackageFiles(packageRoot: string): void {
-  expect(filesIn(packageRoot)).toEqual([...consumerFiles].sort());
-  for (const path of consumerFiles) {
-    expect(readFileSync(resolve(packageRoot, path)), path).toEqual(readFileSync(resolve(assets, path)));
-  }
-  checkLocalLinks(resolve(packageRoot, 'README.md'), packageRoot);
-  const consumer = JSON.parse(read(resolve(packageRoot, 'package.json')));
-  expect(existsSync(resolve(packageRoot, consumer.exports['.'].import))).toBe(true);
-  expect(existsSync(resolve(packageRoot, consumer.exports['.'].types))).toBe(true);
-}
-
 describe('self-contained skill distribution', () => {
   it('keeps npm publication disabled and package metadata synchronized', () => {
     const lock = JSON.parse(read(resolve(kitRoot, 'package-lock.json')));
@@ -71,14 +59,11 @@ describe('self-contained skill distribution', () => {
     expect(lock.version).toBe(pkg.version);
     expect(lock.packages[''].version).toBe(pkg.version);
     expect(pkg.files).toEqual(['dist', 'API.txt', 'examples']);
-    for (const hook of ['preinstall', 'install', 'postinstall', 'prepare']) {
-      expect(pkg.scripts[hook]).toBeUndefined();
-    }
+    for (const hook of ['preinstall', 'install', 'postinstall', 'prepare', 'prepack']) expect(pkg.scripts[hook]).toBeUndefined();
   });
 
-  it('exposes one real plugin through matching marketplace catalogs', () => {
-    const compatibility = JSON.parse(read(resolve(root, '.claude-plugin', 'marketplace.json')));
-    expect(compatibility).toEqual(catalog);
+  it('exposes one plugin through matching marketplace catalogs', () => {
+    expect(JSON.parse(read(resolve(root, '.claude-plugin', 'marketplace.json')))).toEqual(catalog);
     expect(catalog.name).toBe('codeappscompact');
     expect(catalog.plugins).toHaveLength(1);
     expect(catalog.plugins[0].name).toBe(plugin.name);
@@ -87,7 +72,7 @@ describe('self-contained skill distribution', () => {
     expect(resolve(root, catalog.plugins[0].source)).toBe(pluginRoot);
   });
 
-  it('keeps portable and legacy plugin identities equal without executable components', () => {
+  it('keeps portable and legacy plugin identities equal without automatic hooks', () => {
     const legacy = JSON.parse(read(resolve(pluginRoot, '.claude-plugin', 'plugin.json')));
     const { $schema, ...metadata } = plugin;
     expect($schema).toBe('https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
@@ -103,7 +88,6 @@ describe('self-contained skill distribution', () => {
 
   it('keeps skill links inside its portable folder and repository links valid', () => {
     const frontmatter = skill.split(/^---\s*$/m)[1];
-    expect(frontmatter).toBeDefined();
     expect(frontmatter).toMatch(/^name: codeappscompact$/m);
     expect(frontmatter).toMatch(/^description: .+Power Platform Code Apps/m);
     expect(frontmatter).toContain(`version: "${pkg.version}"`);
@@ -115,30 +99,31 @@ describe('self-contained skill distribution', () => {
     checkLocalLinks(resolve(assets, 'README.md'), assets);
   });
 
-  it('ships the installable package directly in assets with no extra manifest or archive', () => {
-    expect(readdirSync(skillRoot).sort()).toEqual(['LICENSE', 'SKILL.md', 'assets']);
-    expect(readdirSync(assets).sort()).toEqual([
-      'API.txt', 'LICENSE', 'README.md', 'dist', 'examples', 'package.json',
-    ]);
+  it('ships plain assets and one explicit helper, with no obsolete installation files', () => {
+    expect(readdirSync(skillRoot).sort()).toEqual(['LICENSE', 'SKILL.md', 'assets', 'scripts']);
+    expect(readdirSync(resolve(skillRoot, 'scripts'))).toEqual(['setup.mjs']);
     expect(filesIn(assets)).toEqual([...consumerFiles].sort());
-    expect(filesIn(skillRoot)).not.toContain('references/kit.json');
-    expect(filesIn(skillRoot)).not.toContain('references/install.md');
-    expect(filesIn(skillRoot).some(path => /\.(zip|tgz)$/i.test(path))).toBe(false);
+    expect(filesIn(skillRoot).some(path => /(?:kit\.json|install\.md|\.(?:zip|tgz|ps1))$/i.test(path))).toBe(false);
+    const consumer = JSON.parse(bundled('package.json'));
+    expect(existsSync(resolve(assets, consumer.exports['.'].import))).toBe(true);
+    expect(existsSync(resolve(assets, consumer.exports['.'].types))).toBe(true);
   });
 
-  it('exposes one matching API file directly before installation', () => {
+  it('exposes one matching API file with a short authoring contract before detailed reference', () => {
     expect(skill).toContain('[bundled API reference](assets/API.txt)');
     expect(normalize(bundled('API.txt'))).toBe(normalize(read(resolve(kitRoot, 'API.txt'))));
     expect(filesIn(skillRoot).filter(path => path.endsWith('API.txt'))).toEqual(['assets/API.txt']);
+    expect(bundled('API.txt')).toMatch(/^Quick authoring contract\r?\n/);
+    expect(bundled('API.txt').indexOf('Detailed reference')).toBeGreaterThan(0);
   });
 
-  it('synchronizes every consumer asset with its canonical source', () => {
+  it('synchronizes all consumer assets with canonical sources', () => {
     for (const path of consumerFiles.filter(path => path !== 'package.json')) {
       expect(normalize(bundled(path)), path).toBe(normalize(read(resolve(kitRoot, path))));
     }
   });
 
-  it('ships only runtime package metadata, not development scripts or origin information', () => {
+  it('ships runtime metadata without development scripts or origin information', () => {
     const consumer = JSON.parse(bundled('package.json'));
     const fields = [
       'name', 'version', 'description', 'license', 'type', 'main', 'types', 'exports',
@@ -157,39 +142,16 @@ describe('self-contained skill distribution', () => {
     }
   });
 
-  it('reads and copies a relocated skill, then retains the package without that skill', () => {
-    const temporary = mkdtempSync(resolve(tmpdir(), 'codeappscompact portable '));
-    const copiedSkill = resolve(temporary, 'unrelated folder', 'copied skill');
-    const destination = resolve(temporary, 'consumer app', 'vendor', `codeappscompact-${pkg.version}`);
-    try {
-      cpSync(skillRoot, copiedSkill, { recursive: true, errorOnExist: true, force: false });
-      checkLocalLinks(resolve(copiedSkill, 'SKILL.md'), copiedSkill);
-      expect(existsSync(destination)).toBe(false);
-      expect(normalize(read(resolve(copiedSkill, 'assets', 'API.txt')))).toBe(normalize(bundled('API.txt')));
-      const consumer = JSON.parse(read(resolve(copiedSkill, 'assets', 'package.json')));
-      expect(consumer.version).toBe(pkg.version);
-      cpSync(resolve(copiedSkill, 'assets'), destination, { recursive: true, errorOnExist: true, force: false });
-      checkPackageFiles(destination);
-      expect(() => cpSync(resolve(copiedSkill, 'assets'), destination, {
-        recursive: true, errorOnExist: true, force: false,
-      })).toThrow();
-      rmSync(copiedSkill, { recursive: true });
-      expect(existsSync(copiedSkill)).toBe(false);
-      checkPackageFiles(destination);
-    } finally {
-      rmSync(temporary, { recursive: true });
-    }
-  });
-
-  it('keeps copying and clean-restore instructions together in SKILL.md', () => {
-    expect(skill).toContain('[assets/package.json](assets/package.json)');
-    expect(skill).toContain("$source = Join-Path $skillRoot 'assets'");
-    expect(skill).toContain('Test-Path -LiteralPath $destination');
-    expect(skill).toContain('Copy-Item -LiteralPath $source -Destination $destination -Recurse -ErrorAction Stop');
-    expect(skill).toContain('npm install --save-exact --install-links --ignore-scripts');
-    expect(skill).toContain('npm ci --install-links --ignore-scripts');
+  it('keeps reuse first and replaces the shell recipe with one setup command', () => {
+    expect(skill.indexOf('Resolve `codeappscompact`')).toBeLessThan(skill.indexOf('[assets/package.json]'));
+    expect(skill).toContain('[setup helper](scripts/setup.mjs)');
+    expect(skill).toContain('node "<installed-skill-folder>\\scripts\\setup.mjs" "<app-folder>"');
+    expect(skill).toContain('npm ci --install-links --ignore-scripts --strict-peer-deps');
     expect(skill).toContain('including `dist`');
-    expect(skill).not.toMatch(/kit\.json|install\.md|Expand-Archive|\.zip\b|SHA-?256|\.tgz/);
+    expect(skill).toContain('types AND behavior');
+    expect(skill).toContain('only for unresolved typing');
+    expect(skill).toContain('Do not repeat portability checks');
+    expect(skill).not.toMatch(/kit\.json|install\.md|Copy-Item|Join-Path|Expand-Archive|\.zip\b|SHA-?256|\.tgz|two corrective passes/);
   });
 
   it('includes the same MIT license in repository, kit, and skill', () => {
