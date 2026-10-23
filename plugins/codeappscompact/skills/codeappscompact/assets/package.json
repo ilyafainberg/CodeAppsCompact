@@ -1,0 +1,30 @@
+{
+  "name": "codeappscompact",
+  "version": "0.1.6",
+  "description": "Bundled React/TypeScript record-screen kit for Power Platform Code Apps",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "API.txt",
+    "examples"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "peerDependencies": {
+    "@microsoft/power-apps": "^1.5.0",
+    "@tanstack/react-query": ">=5.90.5 <6",
+    "react": ">=18.3.1 <20"
+  },
+  "private": true
+}

@@ -5,7 +5,8 @@ coverage/
 .vite/
 *.tgz
 *.zip
-!/plugins/codeappscompact/skills/codeappscompact/assets/*.zip
+!/plugins/codeappscompact/skills/codeappscompact/assets/dist/
+!/plugins/codeappscompact/skills/codeappscompact/assets/dist/**
 *.log
 .env
 .env.*

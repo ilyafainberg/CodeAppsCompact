@@ -1,6 +1,6 @@
 {
   "name": "codeappscompact",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Build compact Power Platform Code Apps record screens using the prebuilt kit bundled with this skill.",
   "author": {
     "name": "Ilya Fainberg"

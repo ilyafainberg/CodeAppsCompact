@@ -1,16 +1,16 @@
 # CodeAppsCompact
 
-**One portable skill folder. Its record-screen kit and all CodeAppsCompact assets are included.**
+**One portable skill folder. The ready-to-install record-screen package is directly in `assets`.**
 
 CodeAppsCompact helps an agent build Power Platform Code Apps by configuring a reusable React/TypeScript screen instead of rewriting its list, form, paging, validation, and error handling.
 
-**0.1.5 - experimental, MIT-licensed.** Distributed as a complete skill ZIP or through the marketplace, not the npm registry. Live Power Apps-host and tenant compatibility remain unverified. This release changes packaging, not component behavior.
+**0.1.6 - experimental, MIT-licensed.** Distributed as a complete skill ZIP or through the marketplace, not the npm registry. Live Power Apps-host and tenant compatibility remain unverified. This release changes packaging, not component behavior.
 
 ## Install the skill
 
-**Portable installation:** import [codeappscompact-skill-0.1.5.zip](https://github.com/ilyafainberg/CodeAppsCompact/releases/download/v0.1.5/codeappscompact-skill-0.1.5.zip), or copy the complete [skill folder](plugins/codeappscompact/skills/codeappscompact) through your host's supported mechanism. Preserve `assets` and `references`; importing only the text of `SKILL.md` is insufficient. The folder can be moved or shared intact. Neither the skill nor its nested kit contains repository URLs, original-location paths, or maintainer build instructions. The host must expose the bundled files to its agent.
+**Portable installation:** import [codeappscompact-skill-0.1.6.zip](https://github.com/ilyafainberg/CodeAppsCompact/releases/download/v0.1.6/codeappscompact-skill-0.1.6.zip), or copy the complete [skill folder](plugins/codeappscompact/skills/codeappscompact) through your host's supported mechanism. Preserve `assets`; importing only the text of `SKILL.md` is insufficient. The folder can be moved or shared intact. It contains no repository URLs, original-location paths, or maintainer build instructions. The host must expose the bundled files to its agent.
 
-**Marketplace installation** is an optional delivery method; it is not a runtime dependency of the skill. This repository is a single-plugin marketplace.
+**Marketplace installation** is an optional delivery method, not a runtime dependency. This repository is a single-plugin marketplace.
 
 GitHub Copilot CLI (terminal):
 
@@ -29,18 +29,25 @@ Claude Code (inside a session):
 Existing users must update or reinstall the complete skill, not just `SKILL.md`. Reload the host if it requires a new session.
 
 ```text
-codeappscompact/
+codeappscompact\
   SKILL.md
   LICENSE
-  references/
+  assets\
+    package.json
     API.txt
-    install.md
-    kit.json
-  assets/
-    codeappscompact-0.1.5.zip
+    README.md
+    LICENSE
+    dist\
+      index.js
+      index.d.ts
+    examples\
+      App.tsx
+      main.tsx
+      service.ts
+      style.css
 ```
 
-The [bundled API reference](plugins/codeappscompact/skills/codeappscompact/references/API.txt) is directly readable at `references\API.txt`; no extraction or package installation is needed to inspect it. The inner ZIP includes the same `API.txt`, prebuilt JavaScript, TypeScript declarations, a synthetic example, a consumer README, runtime-only package metadata, and the MIT license. It has no scripts, development dependencies, or hosting metadata. No separate kit download or source build is needed. Every required path resolves from the installed skill folder, not a checkout or the app's current directory.
+There is **no nested kit archive, `kit.json`, or `install.md`**. `SKILL.md` contains the installation steps, [assets/package.json](plugins/codeappscompact/skills/codeappscompact/assets/package.json) supplies standard package metadata, and [assets/API.txt](plugins/codeappscompact/skills/codeappscompact/assets/API.txt) is directly readable. The outer skill ZIP is only a convenient way to deliver the complete folder; the kit itself needs no extraction, download, or build. Its metadata has no scripts, development dependencies, or hosting information. Every required path resolves from the installed skill folder.
 
 ## Use it
 
@@ -48,9 +55,7 @@ In an existing React/TypeScript Code App, ask:
 
 > Use CodeAppsCompact to add a service-request screen using our existing generated service. Include summary, owner email, priority, and estimated hours. Support creating, editing, paging, and searching loaded records. Preserve the theme and do not deploy.
 
-The agent reuses a supported installed kit. If absent, it verifies the bundled ZIP, extracts it into the app's `vendor` directory, and installs the extracted package folder with the app's package manager. npm cannot install a ZIP directly. The agent reads the version-matched API and writes only your fields, columns, validation, and typed service adapter. Keep the entire extracted package directory, dependency manifest, and lockfile with the app; neither the skill's ZIP nor its original installation is needed for subsequent restores.
-
-Missing or corrupt assets mean an incomplete skill installation: supply the complete folder rather than fetching a substitute or regenerating the component. Existing locked dependencies and custom packages are not silently replaced.
+The agent reuses a working installed kit. If absent, it copies `assets` into the app's versioned `vendor` directory and installs that local package folder with the app's package manager. It reads the matching API and writes only your fields, columns, validation, and typed service adapter. Keep the complete copied package, dependency manifest, and lockfile with the app so later restores do not need the skill's original location. Existing locked dependencies and custom packages are not silently replaced.
 
 **Self-contained does not mean a complete offline app environment.** Node.js >=22.12.0, React, TanStack React Query, and the Power Apps SDK are still required. Missing peers may need your configured registry. No npm account is needed for this kit. The skill has no install hooks and grants no tool permissions; modifying an app still requires authorization.
 
@@ -58,13 +63,13 @@ Missing or corrupt assets mean an incomplete skill installation: supply the comp
 
 `RecordScreen` supports lists, search over loaded records, cursor paging, create/edit/cancel, flat string/number drafts, and visible read/write errors. Failed saves preserve inputs; writes are not automatically retried. The app owns its query provider, styling, generated services, authentication, connections, permissions, and deployment.
 
-Delete, relationships, uploads, nested drafts, backend-wide search, and cross-system transactions are not supplied. The skill does not scaffold or deploy an app. Synthetic examples are not live integrations. See the local [package guide](kit/README.md) and [bundled API contract](plugins/codeappscompact/skills/codeappscompact/references/API.txt).
+Delete, relationships, uploads, nested drafts, backend-wide search, and cross-system transactions are not supplied. The skill does not scaffold or deploy an app. Synthetic examples are not live integrations. See the local [package guide](kit/README.md) and [bundled API contract](plugins/codeappscompact/skills/codeappscompact/assets/API.txt).
 
 ## Maintainer workspace
 
-The portable [skill](plugins/codeappscompact/skills/codeappscompact/SKILL.md) is independent of this workspace. `kit` contains source, tests, the synthetic demo, and build tools; consumers do not need them. `marketplace.json`, `.claude-plugin`, and the plugin manifests provide discovery only. Maintainer instructions stay here, outside the portable bundle.
+The portable [skill](plugins/codeappscompact/skills/codeappscompact/SKILL.md) is independent of this workspace. `kit` contains source, tests, the synthetic demo, and build tools; consumers do not need them. Marketplace and plugin manifests provide discovery only. Maintainer instructions stay here, outside the portable bundle.
 
-Use Node.js >=22.12.0 and PowerShell 7 (`pwsh`). ZIP creation and distribution tests use built-in .NET ZIP support; consumers can use any safe ZIP extractor.
+Use Node.js >=22.12.0 and PowerShell 7 (`pwsh`) for the asset-copy build script.
 
 ```powershell
 cd .\kit
@@ -78,10 +83,10 @@ npm run build:demo
 
 To release a packaging or component change:
 
-1. Update the package/lockfile, both marketplace catalogs, both plugin manifests, skill version, documentation filenames, and `references\kit.json` together. Review supported installed versions; keep npm publishing disabled.
-2. Remove only the previous tracked kit archive when changing its version. Run `npm run bundle:skill` from `kit`. It builds the component, includes an explicit consumer-file and package-metadata allowlist, uses fixed ZIP timestamps, and updates the bundled SHA-256. It also copies the canonical `kit\API.txt` into the skill's `references\API.txt`; do not edit that generated copy independently. Never package this maintainer guide or development scripts.
-3. Run type checking, tests, and the demo build. Distribution tests verify contents, metadata, links, digest, absence of origin references, and extraction from a relocated standalone skill. They also verify that the plain API reference is available before extraction and matches the packaged contract. Exercise local-directory installation and clean lockfile restore in an isolated consumer without the original skill folder.
-4. Commit the reviewed source and complete bundle. Package the entire skill directory into `codeappscompact-skill-<version>.zip` with one top-level `codeappscompact` folder. Publish that ZIP on a new release tag; never replace old release artifacts. Confirm the published ZIP matches the reviewed one.
+1. Update the package/lockfile, both marketplace catalogs, both plugin manifests, skill version, and documentation filenames together. Keep npm publishing disabled.
+2. Run `npm run bundle:skill` from `kit`. It builds the component and synchronizes the plain files in `assets` using explicit consumer-file and package-metadata allowlists. `kit\API.txt` is canonical; do not edit its generated `assets\API.txt` copy independently. The script rejects unexpected asset files rather than silently deleting or packaging them. Never include this maintainer guide or development scripts.
+3. Run type checking and tests. Distribution tests verify the exact asset tree, metadata, links, source synchronization, absence of origin references, and copying from a relocated standalone skill. Exercise local-directory installation and clean lockfile restore in an isolated consumer without the original skill folder. Include the generated `assets\dist` files in version control; the root ignore rules explicitly permit them. Build the demo if component behavior changed.
+4. Commit the reviewed source and complete skill folder. Package that folder into `codeappscompact-skill-<version>.zip` with one top-level `codeappscompact` folder. Publish the ZIP on a new release tag; never replace old release artifacts. Confirm the published ZIP matches the reviewed one.
 
 Both marketplace catalogs represent the same catalog; the plugin's Agent Plugins 1.0 and legacy manifests must stay synchronized. No npm publishing, automatic updates, install hooks, telemetry, or tenant changes are involved.
 

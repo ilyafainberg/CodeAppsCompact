@@ -1,6 +1,4 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
@@ -10,35 +8,28 @@ const kitRoot = resolve(import.meta.dirname, '..');
 const root = resolve(kitRoot, '..');
 const pluginRoot = resolve(root, 'plugins', 'codeappscompact');
 const skillRoot = resolve(pluginRoot, 'skills', 'codeappscompact');
+const assets = resolve(skillRoot, 'assets');
 const read = (path: string) => readFileSync(path, 'utf8');
 const pkg = JSON.parse(read(resolve(kitRoot, 'package.json')));
 const catalog = JSON.parse(read(resolve(root, 'marketplace.json')));
 const plugin = JSON.parse(read(resolve(pluginRoot, 'plugin.json')));
-const kit = JSON.parse(read(resolve(skillRoot, 'references', 'kit.json')));
 const skill = read(resolve(skillRoot, 'SKILL.md'));
-const archive = resolve(skillRoot, kit.archive);
-const entries: { name: string; content: string; attributes: number }[] = JSON.parse(execFileSync('pwsh', [
-  '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', `
-    $ErrorActionPreference = 'Stop'
-    $zip = [IO.Compression.ZipFile]::OpenRead($env:CODEAPPSCOMPACT_ARCHIVE)
-    try {
-      @($zip.Entries | ForEach-Object {
-        $reader = [IO.StreamReader]::new($_.Open())
-        try {
-          [pscustomobject]@{ name = $_.FullName; content = $reader.ReadToEnd(); attributes = $_.ExternalAttributes }
-        }
-        finally { $reader.Dispose() }
-      }) | ConvertTo-Json -Compress
-    }
-    finally { $zip.Dispose() }
-  `,
-], { encoding: 'utf8', env: { ...process.env, CODEAPPSCOMPACT_ARCHIVE: archive } }));
-const packed = (path: string) => {
-  const entry = entries.find(item => item.name === `package/${path}`);
-  if (!entry) throw new Error(`Missing bundled file: ${path}`);
-  return entry.content;
-};
+const bundled = (path: string) => read(resolve(assets, path));
 const normalize = (text: string) => text.replace(/\r\n/g, '\n');
+const consumerFiles = [
+  'API.txt', 'LICENSE', 'README.md', 'dist/index.d.ts', 'dist/index.js',
+  'examples/App.tsx', 'examples/main.tsx', 'examples/service.ts', 'examples/style.css', 'package.json',
+];
+
+function filesIn(directory: string, base = directory): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const path = resolve(directory, entry.name);
+    expect(entry.isSymbolicLink(), path).toBe(false);
+    if (entry.isDirectory()) return filesIn(path, base);
+    expect(entry.isFile(), path).toBe(true);
+    return relative(base, path).replaceAll('\\', '/');
+  }).sort();
+}
 
 function checkLocalLinks(path: string, boundary?: string): void {
   for (const match of read(path).matchAll(/\]\(([^)]+)\)/g)) {
@@ -57,6 +48,17 @@ function checkLocalLinks(path: string, boundary?: string): void {
       expect(isAbsolute(local)).toBe(false);
     }
   }
+}
+
+function checkPackageFiles(packageRoot: string): void {
+  expect(filesIn(packageRoot)).toEqual([...consumerFiles].sort());
+  for (const path of consumerFiles) {
+    expect(readFileSync(resolve(packageRoot, path)), path).toEqual(readFileSync(resolve(assets, path)));
+  }
+  checkLocalLinks(resolve(packageRoot, 'README.md'), packageRoot);
+  const consumer = JSON.parse(read(resolve(packageRoot, 'package.json')));
+  expect(existsSync(resolve(packageRoot, consumer.exports['.'].import))).toBe(true);
+  expect(existsSync(resolve(packageRoot, consumer.exports['.'].types))).toBe(true);
 }
 
 describe('self-contained skill distribution', () => {
@@ -108,122 +110,92 @@ describe('self-contained skill distribution', () => {
     expect(frontmatter).not.toMatch(/^(allowed-tools|model):/m);
     expect(frontmatter).not.toMatch(/\b(repository|homepage):/);
     checkLocalLinks(resolve(skillRoot, 'SKILL.md'), skillRoot);
-    checkLocalLinks(resolve(skillRoot, 'references', 'install.md'), skillRoot);
     checkLocalLinks(resolve(root, 'README.md'));
     checkLocalLinks(resolve(kitRoot, 'README.md'), kitRoot);
+    checkLocalLinks(resolve(assets, 'README.md'), assets);
   });
 
-  it('ships one real ZIP with a matching digest, not a separate download URL', () => {
-    expect(kit.name).toBe(pkg.name);
-    expect(kit.version).toBe(pkg.version);
-    expect(kit.compatibleInstalledVersions).toEqual(['0.1.0', '0.1.1', '0.1.2', '0.1.3', '0.1.4', pkg.version]);
-    expect(kit.url).toBeUndefined();
-    expect(kit.archive).toBe(`assets/${pkg.name}-${pkg.version}.zip`);
-    expect(readdirSync(resolve(skillRoot, 'assets'))).toEqual([`${pkg.name}-${pkg.version}.zip`]);
-    const bytes = readFileSync(archive);
-    expect([...bytes.subarray(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
-    expect(kit.sha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(createHash('sha256').update(bytes).digest('hex')).toBe(kit.sha256);
+  it('ships the installable package directly in assets with no extra manifest or archive', () => {
+    expect(readdirSync(skillRoot).sort()).toEqual(['LICENSE', 'SKILL.md', 'assets']);
+    expect(readdirSync(assets).sort()).toEqual([
+      'API.txt', 'LICENSE', 'README.md', 'dist', 'examples', 'package.json',
+    ]);
+    expect(filesIn(assets)).toEqual([...consumerFiles].sort());
+    expect(filesIn(skillRoot)).not.toContain('references/kit.json');
+    expect(filesIn(skillRoot)).not.toContain('references/install.md');
+    expect(filesIn(skillRoot).some(path => /\.(zip|tgz)$/i.test(path))).toBe(false);
   });
 
-  it('exposes the matching API as a plain skill reference before installation', () => {
-    const reference = read(resolve(skillRoot, 'references', 'API.txt'));
-    expect(skill).toContain('[bundled API reference](references/API.txt)');
-    expect(normalize(reference)).toBe(normalize(packed('API.txt')));
-    expect(normalize(reference)).toBe(normalize(read(resolve(kitRoot, 'API.txt'))));
+  it('exposes one matching API file directly before installation', () => {
+    expect(skill).toContain('[bundled API reference](assets/API.txt)');
+    expect(normalize(bundled('API.txt'))).toBe(normalize(read(resolve(kitRoot, 'API.txt'))));
+    expect(filesIn(skillRoot).filter(path => path.endsWith('API.txt'))).toEqual(['assets/API.txt']);
   });
 
-  it('includes every consumer asset and excludes maintainer files and links', () => {
-    const expected = [
-      'API.txt', 'LICENSE', 'README.md', 'dist/index.d.ts', 'dist/index.js',
-      'examples/App.tsx', 'examples/main.tsx', 'examples/service.ts', 'examples/style.css', 'package.json',
-    ];
-    expect(entries.map(entry => entry.name).sort()).toEqual(expected.map(path => `package/${path}`).sort());
-    for (const entry of entries) expect((entry.attributes >>> 16) & 0o170000).not.toBe(0o120000);
-    for (const path of expected.filter(path => path !== 'package.json')) {
-      expect(normalize(packed(path)), path).toBe(normalize(read(resolve(kitRoot, path))));
+  it('synchronizes every consumer asset with its canonical source', () => {
+    for (const path of consumerFiles.filter(path => path !== 'package.json')) {
+      expect(normalize(bundled(path)), path).toBe(normalize(read(resolve(kitRoot, path))));
     }
   });
 
   it('ships only runtime package metadata, not development scripts or origin information', () => {
-    const consumer = JSON.parse(packed('package.json'));
+    const consumer = JSON.parse(bundled('package.json'));
     const fields = [
       'name', 'version', 'description', 'license', 'type', 'main', 'types', 'exports',
       'files', 'sideEffects', 'engines', 'peerDependencies', 'private',
     ];
     expect(Object.keys(consumer).sort()).toEqual(fields.sort());
     for (const key of fields) expect(consumer[key], key).toEqual(pkg[key]);
-    expect(packed('README.md')).not.toMatch(/npm (ci|run (build|test|dev))|bundle-skill|marketplace\.json/);
+    expect(bundled('README.md')).not.toMatch(/npm (ci|run (build|test|dev))|bundle-skill|marketplace\.json/);
   });
 
   it('contains no external URLs, original workspace paths, or repository identifiers', () => {
-    expect(readdirSync(skillRoot).sort()).toEqual(['LICENSE', 'SKILL.md', 'assets', 'references']);
-    expect(readdirSync(resolve(skillRoot, 'references')).sort()).toEqual(['API.txt', 'install.md', 'kit.json']);
-    const portableText = [
-      { name: 'SKILL.md', content: skill },
-      { name: 'LICENSE', content: read(resolve(skillRoot, 'LICENSE')) },
-      { name: 'references/API.txt', content: read(resolve(skillRoot, 'references', 'API.txt')) },
-      { name: 'references/kit.json', content: JSON.stringify(kit) },
-      { name: 'references/install.md', content: read(resolve(skillRoot, 'references', 'install.md')) },
-      ...entries,
-    ];
-    for (const { name, content } of portableText) {
-      expect(content, name).not.toMatch(/https?:\/\/|git\+|github:|\b(?:ilyafainberg|codeapps-records|CopilotWorkspace)\b|[a-z]:[\\/]/i);
+    for (const path of filesIn(skillRoot)) {
+      expect(read(resolve(skillRoot, path)), path).not.toMatch(
+        /https?:\/\/|git\+|github:|\b(?:ilyafainberg|codeapps-records|CopilotWorkspace)\b|[a-z]:[\\/]/i,
+      );
     }
   });
 
-  it('reads the API before extraction from a relocated skill and retains the extracted package', () => {
+  it('reads and copies a relocated skill, then retains the package without that skill', () => {
     const temporary = mkdtempSync(resolve(tmpdir(), 'codeappscompact portable '));
     const copiedSkill = resolve(temporary, 'unrelated folder', 'copied skill');
     const destination = resolve(temporary, 'consumer app', 'vendor', `codeappscompact-${pkg.version}`);
     try {
-      cpSync(skillRoot, copiedSkill, { recursive: true, errorOnExist: true });
-      const manifest = JSON.parse(read(resolve(copiedSkill, 'references', 'kit.json')));
-      const copiedArchive = resolve(copiedSkill, manifest.archive);
-      expect(createHash('sha256').update(readFileSync(copiedArchive)).digest('hex')).toBe(manifest.sha256);
+      cpSync(skillRoot, copiedSkill, { recursive: true, errorOnExist: true, force: false });
       checkLocalLinks(resolve(copiedSkill, 'SKILL.md'), copiedSkill);
-      checkLocalLinks(resolve(copiedSkill, 'references', 'install.md'), copiedSkill);
       expect(existsSync(destination)).toBe(false);
-      expect(normalize(read(resolve(copiedSkill, 'references', 'API.txt')))).toBe(normalize(packed('API.txt')));
-      execFileSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', `
-        $ErrorActionPreference = 'Stop'
-        Expand-Archive -LiteralPath $env:CODEAPPSCOMPACT_ARCHIVE -DestinationPath $env:CODEAPPSCOMPACT_DESTINATION
-      `], {
-        cwd: temporary,
-        env: { ...process.env, CODEAPPSCOMPACT_ARCHIVE: copiedArchive, CODEAPPSCOMPACT_DESTINATION: destination },
-      });
+      expect(normalize(read(resolve(copiedSkill, 'assets', 'API.txt')))).toBe(normalize(bundled('API.txt')));
+      const consumer = JSON.parse(read(resolve(copiedSkill, 'assets', 'package.json')));
+      expect(consumer.version).toBe(pkg.version);
+      cpSync(resolve(copiedSkill, 'assets'), destination, { recursive: true, errorOnExist: true, force: false });
+      checkPackageFiles(destination);
+      expect(() => cpSync(resolve(copiedSkill, 'assets'), destination, {
+        recursive: true, errorOnExist: true, force: false,
+      })).toThrow();
       rmSync(copiedSkill, { recursive: true });
       expect(existsSync(copiedSkill)).toBe(false);
-      for (const entry of entries) {
-        expect(normalize(read(resolve(destination, entry.name))), entry.name).toBe(normalize(entry.content));
-      }
-      const packageRoot = resolve(destination, 'package');
-      checkLocalLinks(resolve(packageRoot, 'README.md'), packageRoot);
-      const consumer = JSON.parse(read(resolve(packageRoot, 'package.json')));
-      expect(existsSync(resolve(packageRoot, consumer.exports['.'].import))).toBe(true);
-      expect(existsSync(resolve(packageRoot, consumer.exports['.'].types))).toBe(true);
+      checkPackageFiles(destination);
     } finally {
       rmSync(temporary, { recursive: true });
     }
-  }, 15000);
+  });
 
-  it('documents ZIP extraction, copy installation, and matching clean-restore options', () => {
-    const instructions = read(resolve(skillRoot, 'references', 'install.md'));
-    expect(instructions).toContain('[API reference](API.txt)');
-    expect(instructions).toContain(`vendor\\codeappscompact-${pkg.version}\\package\\API.txt`);
-    expect(instructions).toContain('Expand-Archive');
-    expect(instructions).toContain(`".\\vendor\\codeappscompact-${pkg.version}\\package"`);
-    expect(instructions).toContain('npm install --save-exact --install-links --ignore-scripts');
-    expect(instructions).toContain('npm ci --install-links --ignore-scripts');
-    expect(instructions).toContain('local-directory');
-    expect(instructions).not.toMatch(/npm install[^\r\n]*\.zip/);
-    expect(instructions).not.toMatch(/\.tgz|tarball/);
+  it('keeps copying and clean-restore instructions together in SKILL.md', () => {
+    expect(skill).toContain('[assets/package.json](assets/package.json)');
+    expect(skill).toContain("$source = Join-Path $skillRoot 'assets'");
+    expect(skill).toContain('Test-Path -LiteralPath $destination');
+    expect(skill).toContain('Copy-Item -LiteralPath $source -Destination $destination -Recurse -ErrorAction Stop');
+    expect(skill).toContain('npm install --save-exact --install-links --ignore-scripts');
+    expect(skill).toContain('npm ci --install-links --ignore-scripts');
+    expect(skill).toContain('including `dist`');
+    expect(skill).not.toMatch(/kit\.json|install\.md|Expand-Archive|\.zip\b|SHA-?256|\.tgz/);
   });
 
   it('includes the same MIT license in repository, kit, and skill', () => {
     const license = normalize(read(resolve(root, 'LICENSE')));
     expect(normalize(read(resolve(kitRoot, 'LICENSE')))).toBe(license);
     expect(normalize(read(resolve(skillRoot, 'LICENSE')))).toBe(license);
-    expect(normalize(packed('LICENSE'))).toBe(license);
+    expect(normalize(bundled('LICENSE'))).toBe(license);
   });
 });

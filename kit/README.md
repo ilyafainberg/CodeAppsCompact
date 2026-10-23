@@ -4,7 +4,7 @@ A prebuilt React/TypeScript record-screen kit, included in the complete CodeApps
 
 ## Use
 
-Follow the skill's bundled installation instructions to extract this package into your app and install that local directory with the app's existing package manager. Keep the entire extracted package with the app's dependency manifest and lockfile; do not depend on the skill's original location. The package is private to prevent registry publication, not local installation.
+Follow the installation steps in `SKILL.md` to copy this entire package from the skill's `assets` folder into your app and install that local directory with the app's existing package manager. Keep the complete copied package with the app's dependency manifest and lockfile; do not depend on the skill's original location. The package is private to prevent registry publication, not local installation.
 
 Read [API.txt](API.txt) for the `RecordScreen` contract. Configure fields, columns, defaults, validation, record identity, and a typed adapter over the app's existing generated services instead of regenerating the screen.
 
