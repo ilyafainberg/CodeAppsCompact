@@ -22,6 +22,14 @@ if (Get-ChildItem -LiteralPath $assets -Force | Where-Object Name -ne $filename)
     throw 'Remove the previous tracked kit archive explicitly; assets must contain only the current kit.'
 }
 
+$consumerPackage = [ordered]@{}
+foreach ($key in @('name', 'version', 'description', 'license', 'type', 'main', 'types', 'exports',
+    'files', 'sideEffects', 'engines', 'peerDependencies', 'private')) {
+    if (-not $pkg.ContainsKey($key)) { throw "Missing consumer package metadata: $key" }
+    $consumerPackage[$key] = $pkg[$key]
+}
+$consumerJson = ($consumerPackage | ConvertTo-Json -Depth 10).Replace("`r`n", "`n") + "`n"
+
 $files = @(
     'API.txt', 'LICENSE', 'README.md', 'dist/index.d.ts', 'dist/index.js',
     'examples/App.tsx', 'examples/main.tsx', 'examples/service.ts', 'examples/style.css', 'package.json'
@@ -35,7 +43,11 @@ try {
             if ($source.PSIsContainer -or ($source.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
                 throw "Expected a regular consumer file: $path"
             }
-            $bytes = [IO.File]::ReadAllBytes($source.FullName)
+            $bytes = if ($path -eq 'package.json') {
+                [Text.Encoding]::UTF8.GetBytes($consumerJson)
+            } else {
+                [IO.File]::ReadAllBytes($source.FullName)
+            }
             $entry = $zip.CreateEntry("package/$path", [IO.Compression.CompressionLevel]::Optimal)
             $entry.LastWriteTime = [DateTimeOffset]::new(2000, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
             $output = $entry.Open()

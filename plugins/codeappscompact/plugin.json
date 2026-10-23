@@ -1,13 +1,11 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codeappscompact",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Build compact Power Platform Code Apps record screens using the prebuilt kit bundled with this skill.",
   "author": {
     "name": "Ilya Fainberg"
   },
-  "homepage": "https://github.com/ilyafainberg/CodeAppsCompact#readme",
-  "repository": "https://github.com/ilyafainberg/CodeAppsCompact",
   "license": "MIT",
   "keywords": ["agent-skills", "power-apps", "code-apps", "power-platform", "react", "typescript"]
 }

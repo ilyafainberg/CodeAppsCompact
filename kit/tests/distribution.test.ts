@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, relative, resolve } from 'node:path';
+import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const kitRoot = resolve(import.meta.dirname, '..');
@@ -42,10 +43,19 @@ const normalize = (text: string) => text.replace(/\r\n/g, '\n');
 function checkLocalLinks(path: string, boundary?: string): void {
   for (const match of read(path).matchAll(/\]\(([^)]+)\)/g)) {
     const target = match[1];
-    if (/^https?:\/\//.test(target) || target.startsWith('#')) continue;
+    if (target.startsWith('#')) continue;
+    if (/^[a-z][a-z\d+.-]*:/i.test(target)) {
+      expect(boundary, `${path}: external link ${target}`).toBeUndefined();
+      continue;
+    }
+    expect(isAbsolute(target), `${path}: absolute link ${target}`).toBe(false);
     const resolved = resolve(dirname(path), target);
     expect(existsSync(resolved), `${path}: ${target}`).toBe(true);
-    if (boundary) expect(relative(boundary, resolved)).not.toMatch(/^\.\./);
+    if (boundary) {
+      const local = relative(boundary, resolved);
+      expect(local).not.toMatch(/^\.\.(?:[\\/]|$)/);
+      expect(isAbsolute(local)).toBe(false);
+    }
   }
 }
 
@@ -71,6 +81,7 @@ describe('self-contained skill distribution', () => {
     expect(catalog.plugins).toHaveLength(1);
     expect(catalog.plugins[0].name).toBe(plugin.name);
     expect(catalog.plugins[0].version).toBe(pkg.version);
+    expect(catalog.plugins[0].repository).toBeUndefined();
     expect(resolve(root, catalog.plugins[0].source)).toBe(pluginRoot);
   });
 
@@ -82,7 +93,7 @@ describe('self-contained skill distribution', () => {
     expect(plugin.name).toBe('codeappscompact');
     expect(plugin.version).toBe(pkg.version);
     expect(Object.keys(plugin).sort()).toEqual([
-      '$schema', 'author', 'description', 'homepage', 'keywords', 'license', 'name', 'repository', 'version',
+      '$schema', 'author', 'description', 'keywords', 'license', 'name', 'version',
     ].sort());
     expect(readdirSync(pluginRoot).sort()).toEqual(['.claude-plugin', 'plugin.json', 'skills']);
     expect(readdirSync(resolve(pluginRoot, 'skills'))).toEqual(['codeappscompact']);
@@ -95,16 +106,17 @@ describe('self-contained skill distribution', () => {
     expect(frontmatter).toMatch(/^description: .+Power Platform Code Apps/m);
     expect(frontmatter).toContain(`version: "${pkg.version}"`);
     expect(frontmatter).not.toMatch(/^(allowed-tools|model):/m);
+    expect(frontmatter).not.toMatch(/\b(repository|homepage):/);
     checkLocalLinks(resolve(skillRoot, 'SKILL.md'), skillRoot);
     checkLocalLinks(resolve(skillRoot, 'references', 'install.md'), skillRoot);
     checkLocalLinks(resolve(root, 'README.md'));
-    checkLocalLinks(resolve(kitRoot, 'README.md'));
+    checkLocalLinks(resolve(kitRoot, 'README.md'), kitRoot);
   });
 
   it('ships one real ZIP with a matching digest, not a separate download URL', () => {
     expect(kit.name).toBe(pkg.name);
     expect(kit.version).toBe(pkg.version);
-    expect(kit.compatibleInstalledVersions).toEqual(['0.1.0', '0.1.1', '0.1.2', pkg.version]);
+    expect(kit.compatibleInstalledVersions).toEqual(['0.1.0', '0.1.1', '0.1.2', '0.1.3', pkg.version]);
     expect(kit.url).toBeUndefined();
     expect(kit.archive).toBe(`assets/${pkg.name}-${pkg.version}.zip`);
     expect(readdirSync(resolve(skillRoot, 'assets'))).toEqual([`${pkg.name}-${pkg.version}.zip`]);
@@ -120,12 +132,70 @@ describe('self-contained skill distribution', () => {
       'examples/App.tsx', 'examples/main.tsx', 'examples/service.ts', 'examples/style.css', 'package.json',
     ];
     expect(entries.map(entry => entry.name).sort()).toEqual(expected.map(path => `package/${path}`).sort());
-    expect(JSON.parse(packed('package.json'))).toEqual(pkg);
     for (const entry of entries) expect((entry.attributes >>> 16) & 0o170000).not.toBe(0o120000);
     for (const path of expected.filter(path => path !== 'package.json')) {
       expect(normalize(packed(path)), path).toBe(normalize(read(resolve(kitRoot, path))));
     }
   });
+
+  it('ships only runtime package metadata, not development scripts or origin information', () => {
+    const consumer = JSON.parse(packed('package.json'));
+    const fields = [
+      'name', 'version', 'description', 'license', 'type', 'main', 'types', 'exports',
+      'files', 'sideEffects', 'engines', 'peerDependencies', 'private',
+    ];
+    expect(Object.keys(consumer).sort()).toEqual(fields.sort());
+    for (const key of fields) expect(consumer[key], key).toEqual(pkg[key]);
+    expect(packed('README.md')).not.toMatch(/npm (ci|run (build|test|dev))|bundle-skill|marketplace\.json/);
+  });
+
+  it('contains no external URLs, original workspace paths, or repository identifiers', () => {
+    expect(readdirSync(skillRoot).sort()).toEqual(['LICENSE', 'SKILL.md', 'assets', 'references']);
+    expect(readdirSync(resolve(skillRoot, 'references')).sort()).toEqual(['install.md', 'kit.json']);
+    const portableText = [
+      { name: 'SKILL.md', content: skill },
+      { name: 'LICENSE', content: read(resolve(skillRoot, 'LICENSE')) },
+      { name: 'references/kit.json', content: JSON.stringify(kit) },
+      { name: 'references/install.md', content: read(resolve(skillRoot, 'references', 'install.md')) },
+      ...entries,
+    ];
+    for (const { name, content } of portableText) {
+      expect(content, name).not.toMatch(/https?:\/\/|git\+|github:|\b(?:ilyafainberg|codeapps-records|CopilotWorkspace)\b|[a-z]:[\\/]/i);
+    }
+  });
+
+  it('extracts from a relocated skill and retains all package files after that skill is removed', () => {
+    const temporary = mkdtempSync(resolve(tmpdir(), 'codeappscompact portable '));
+    const copiedSkill = resolve(temporary, 'unrelated folder', 'copied skill');
+    const destination = resolve(temporary, 'consumer app', 'vendor', `codeappscompact-${pkg.version}`);
+    try {
+      cpSync(skillRoot, copiedSkill, { recursive: true, errorOnExist: true });
+      const manifest = JSON.parse(read(resolve(copiedSkill, 'references', 'kit.json')));
+      const copiedArchive = resolve(copiedSkill, manifest.archive);
+      expect(createHash('sha256').update(readFileSync(copiedArchive)).digest('hex')).toBe(manifest.sha256);
+      checkLocalLinks(resolve(copiedSkill, 'SKILL.md'), copiedSkill);
+      checkLocalLinks(resolve(copiedSkill, 'references', 'install.md'), copiedSkill);
+      execFileSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', `
+        $ErrorActionPreference = 'Stop'
+        Expand-Archive -LiteralPath $env:CODEAPPSCOMPACT_ARCHIVE -DestinationPath $env:CODEAPPSCOMPACT_DESTINATION
+      `], {
+        cwd: temporary,
+        env: { ...process.env, CODEAPPSCOMPACT_ARCHIVE: copiedArchive, CODEAPPSCOMPACT_DESTINATION: destination },
+      });
+      rmSync(copiedSkill, { recursive: true });
+      expect(existsSync(copiedSkill)).toBe(false);
+      for (const entry of entries) {
+        expect(normalize(read(resolve(destination, entry.name))), entry.name).toBe(normalize(entry.content));
+      }
+      const packageRoot = resolve(destination, 'package');
+      checkLocalLinks(resolve(packageRoot, 'README.md'), packageRoot);
+      const consumer = JSON.parse(read(resolve(packageRoot, 'package.json')));
+      expect(existsSync(resolve(packageRoot, consumer.exports['.'].import))).toBe(true);
+      expect(existsSync(resolve(packageRoot, consumer.exports['.'].types))).toBe(true);
+    } finally {
+      rmSync(temporary, { recursive: true });
+    }
+  }, 15000);
 
   it('documents ZIP extraction, copy installation, and matching clean-restore options', () => {
     const instructions = read(resolve(skillRoot, 'references', 'install.md'));
