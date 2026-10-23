@@ -62,7 +62,8 @@ finally { $memory.Dispose() }
 
 $destination = Join-Path $assets $filename
 [IO.File]::WriteAllBytes($destination, $bundle)
+[IO.File]::Copy((Join-Path $kitRoot 'API.txt'), (Join-Path $skillRoot 'references' 'API.txt'), $true)
 $manifest.sha256 = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
 $json = ($manifest | ConvertTo-Json -Depth 10).Replace("`r`n", "`n")
 [IO.File]::WriteAllText($manifestPath, $json + "`n")
-Write-Output "Bundled $filename ($($bundle.Length) bytes); updated kit.json SHA-256."
+Write-Output "Bundled $filename ($($bundle.Length) bytes); synchronized references\API.txt and kit.json SHA-256."

@@ -4,12 +4,12 @@ description: Build or update compact React/TypeScript record-list and create/edi
 license: MIT
 compatibility: Requires an authorized React/TypeScript Code App, Node.js 22.12 or newer, project package tooling, and host-provided local file, ZIP extraction, and execution capabilities. Install the complete skill folder, including assets and references.
 metadata:
-  version: "0.1.4"
+  version: "0.1.5"
 ---
 
 # CodeAppsCompact
 
-This complete skill folder is the portable unit: it contains the prebuilt kit, API reference, types, and synthetic example. Resolve bundled paths from the folder containing this `SKILL.md`, never from the app's working directory or the skill's original location. No hosting metadata, source checkout, or network lookup is needed to locate the kit. Text-only skill imports are insufficient; the host must expose the complete folder.
+This complete skill folder is the portable unit: it contains the prebuilt kit, directly readable API reference, types, and synthetic example. Resolve bundled paths from the folder containing this `SKILL.md`, never from the app's working directory or the skill's original location. No hosting metadata, source checkout, or network lookup is needed to locate the kit. Text-only skill imports are insufficient; the host must expose the complete folder.
 
 Generate only app-specific configuration, adapters, styling integration, and tests, not another record-screen implementation.
 
@@ -21,7 +21,7 @@ Supported: list, search over loaded records, cursor paging, create/edit/cancel, 
 
 ## 2. Reuse or install the bundled kit
 
-Read [kit.json](references/kit.json). Its `archive` path is relative to this installed skill's directory. Resolve `codeappscompact` in the app and inspect its version, declared dependency path, and `API.txt`. Reuse a working supported installation. Restore a declared but missing dependency from its existing lockfile; never silently replace its version, origin, or a custom package.
+Read [kit.json](references/kit.json). Its `archive` path is relative to this installed skill's directory. Resolve `codeappscompact` in the app and inspect its version, declared dependency path, and package-root `API.txt`. Reuse a working supported installation. Restore a declared but missing dependency from its existing lockfile; never silently replace its version, origin, or a custom package.
 
 If absent, follow [local installation](references/install.md): verify the included ZIP's SHA-256 and contents, extract it into the app's `vendor` directory, and install the extracted package directory with the existing package manager. npm cannot install a ZIP directly. Retain the extracted files with the app for clean restores. No separate kit download, npm-registry package lookup, or source build is needed. Missing or corrupt bundled assets mean an incomplete skill installation: stop and request the complete skill, not a substitute download or regenerated component.
 
@@ -29,7 +29,7 @@ Use only tools supplied and authorized by the current host; permission decisions
 
 ## 3. Configure, do not regenerate
 
-Read the installed kit's `API.txt` and relevant declarations. Load its synthetic example only if needed, not the implementation or unrelated connector documentation.
+For the bundled kit version, read the [bundled API reference](references/API.txt) directly: it is a plain file in this skill's `references` folder, readable without ZIP extraction or package installation. It matches the version in `kit.json`. If reusing a different supported version, read that installed package's own root `API.txt` instead. Read relevant declarations from the actual installed package. Load its synthetic example only if needed, not the implementation or unrelated connector documentation.
 
 Inspect actual generated service signatures and response types. Write a typed `DataService<R, D>` adapter without invented fields, casts to `any`, or successful empty fallbacks. Preserve failure results, paging tokens, identity, and supported write semantics.
 

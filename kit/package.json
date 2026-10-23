@@ -1,6 +1,6 @@
 {
   "name": "codeappscompact",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Bundled React/TypeScript record-screen kit for Power Platform Code Apps",
   "license": "MIT",
   "type": "module",

@@ -1,13 +1,14 @@
 {
   "name": "codeappscompact",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "compatibleInstalledVersions": [
     "0.1.0",
     "0.1.1",
     "0.1.2",
     "0.1.3",
-    "0.1.4"
+    "0.1.4",
+    "0.1.5"
   ],
-  "archive": "assets/codeappscompact-0.1.4.zip",
-  "sha256": "4017e5449bad6fc08338b3770c8ba41123e3a18328d381dc72b46b34a7b09701"
+  "archive": "assets/codeappscompact-0.1.5.zip",
+  "sha256": "42a55a52ebb3726e0043c2b6d9d12f1549376671be3f0b73dbc17790441f40d8"
 }

@@ -116,7 +116,7 @@ describe('self-contained skill distribution', () => {
   it('ships one real ZIP with a matching digest, not a separate download URL', () => {
     expect(kit.name).toBe(pkg.name);
     expect(kit.version).toBe(pkg.version);
-    expect(kit.compatibleInstalledVersions).toEqual(['0.1.0', '0.1.1', '0.1.2', '0.1.3', pkg.version]);
+    expect(kit.compatibleInstalledVersions).toEqual(['0.1.0', '0.1.1', '0.1.2', '0.1.3', '0.1.4', pkg.version]);
     expect(kit.url).toBeUndefined();
     expect(kit.archive).toBe(`assets/${pkg.name}-${pkg.version}.zip`);
     expect(readdirSync(resolve(skillRoot, 'assets'))).toEqual([`${pkg.name}-${pkg.version}.zip`]);
@@ -124,6 +124,13 @@ describe('self-contained skill distribution', () => {
     expect([...bytes.subarray(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
     expect(kit.sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(createHash('sha256').update(bytes).digest('hex')).toBe(kit.sha256);
+  });
+
+  it('exposes the matching API as a plain skill reference before installation', () => {
+    const reference = read(resolve(skillRoot, 'references', 'API.txt'));
+    expect(skill).toContain('[bundled API reference](references/API.txt)');
+    expect(normalize(reference)).toBe(normalize(packed('API.txt')));
+    expect(normalize(reference)).toBe(normalize(read(resolve(kitRoot, 'API.txt'))));
   });
 
   it('includes every consumer asset and excludes maintainer files and links', () => {
@@ -151,10 +158,11 @@ describe('self-contained skill distribution', () => {
 
   it('contains no external URLs, original workspace paths, or repository identifiers', () => {
     expect(readdirSync(skillRoot).sort()).toEqual(['LICENSE', 'SKILL.md', 'assets', 'references']);
-    expect(readdirSync(resolve(skillRoot, 'references')).sort()).toEqual(['install.md', 'kit.json']);
+    expect(readdirSync(resolve(skillRoot, 'references')).sort()).toEqual(['API.txt', 'install.md', 'kit.json']);
     const portableText = [
       { name: 'SKILL.md', content: skill },
       { name: 'LICENSE', content: read(resolve(skillRoot, 'LICENSE')) },
+      { name: 'references/API.txt', content: read(resolve(skillRoot, 'references', 'API.txt')) },
       { name: 'references/kit.json', content: JSON.stringify(kit) },
       { name: 'references/install.md', content: read(resolve(skillRoot, 'references', 'install.md')) },
       ...entries,
@@ -164,7 +172,7 @@ describe('self-contained skill distribution', () => {
     }
   });
 
-  it('extracts from a relocated skill and retains all package files after that skill is removed', () => {
+  it('reads the API before extraction from a relocated skill and retains the extracted package', () => {
     const temporary = mkdtempSync(resolve(tmpdir(), 'codeappscompact portable '));
     const copiedSkill = resolve(temporary, 'unrelated folder', 'copied skill');
     const destination = resolve(temporary, 'consumer app', 'vendor', `codeappscompact-${pkg.version}`);
@@ -175,6 +183,8 @@ describe('self-contained skill distribution', () => {
       expect(createHash('sha256').update(readFileSync(copiedArchive)).digest('hex')).toBe(manifest.sha256);
       checkLocalLinks(resolve(copiedSkill, 'SKILL.md'), copiedSkill);
       checkLocalLinks(resolve(copiedSkill, 'references', 'install.md'), copiedSkill);
+      expect(existsSync(destination)).toBe(false);
+      expect(normalize(read(resolve(copiedSkill, 'references', 'API.txt')))).toBe(normalize(packed('API.txt')));
       execFileSync('pwsh', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', `
         $ErrorActionPreference = 'Stop'
         Expand-Archive -LiteralPath $env:CODEAPPSCOMPACT_ARCHIVE -DestinationPath $env:CODEAPPSCOMPACT_DESTINATION
@@ -199,6 +209,8 @@ describe('self-contained skill distribution', () => {
 
   it('documents ZIP extraction, copy installation, and matching clean-restore options', () => {
     const instructions = read(resolve(skillRoot, 'references', 'install.md'));
+    expect(instructions).toContain('[API reference](API.txt)');
+    expect(instructions).toContain(`vendor\\codeappscompact-${pkg.version}\\package\\API.txt`);
     expect(instructions).toContain('Expand-Archive');
     expect(instructions).toContain(`".\\vendor\\codeappscompact-${pkg.version}\\package"`);
     expect(instructions).toContain('npm install --save-exact --install-links --ignore-scripts');
