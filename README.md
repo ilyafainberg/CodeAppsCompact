@@ -82,6 +82,8 @@ npm test
 
 `npm run dev` runs the local in-memory demo; `npm run build:demo` builds it. Neither publishes or deploys.
 
+The setup integration test may use the configured registry to install app peers, then runs kit setup and clean restore offline. It does not assume a previously populated registry metadata cache.
+
 For a release:
 
 1. Update package/lockfile, marketplace/plugin versions, skill metadata, and documentation together. Keep npm publishing disabled.

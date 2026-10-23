@@ -30,9 +30,9 @@ function setup(app: string, skill = skillRoot) {
   return { status: result.status, output: result.stdout + result.stderr };
 }
 
-function runAsync(command: string, args: string[], cwd?: string): Promise<{ status: number; output: string }> {
+function runAsync(command: string, args: string[], cwd?: string, environment: NodeJS.ProcessEnv = offline): Promise<{ status: number; output: string }> {
   return new Promise((resolve, reject) => {
-    execFile(command, args, { cwd, encoding: 'utf8', env: offline, timeout: 90000 }, (error, stdout, stderr) => {
+    execFile(command, args, { cwd, encoding: 'utf8', env: environment, timeout: 90000 }, (error, stdout, stderr) => {
       if (error && (typeof error.code !== 'number' || error.killed || error.signal)) {
         reject(error);
       } else {
@@ -42,11 +42,11 @@ function runAsync(command: string, args: string[], cwd?: string): Promise<{ stat
   });
 }
 
-async function runNpm(app: string, args: string[]) {
+async function runNpm(app: string, args: string[], environment: NodeJS.ProcessEnv = offline) {
   const windows = process.platform === 'win32';
   const result = await runAsync(windows ? process.env.ComSpec || 'cmd.exe' : 'npm',
     windows ? ['/d', '/s', '/c', ['npm', ...args].join(' ')] : args,
-    app);
+    app, environment);
   expect(result.status, result.output).toBe(0);
 }
 
@@ -188,7 +188,8 @@ describe('portable setup helper', () => {
     const skill = join(root, 'moved skill & spaces');
     cpSync(skillRoot, skill, { recursive: true });
     const runSetup = () => runAsync(process.execPath, [join(skill, 'scripts', 'setup.mjs'), app]);
-    await runNpm(app, ['install', '--ignore-scripts', '--strict-peer-deps', '--no-audit', '--no-fund']);
+    // Peer prerequisites may use the configured registry; kit setup and restores stay offline.
+    await runNpm(app, ['install', '--ignore-scripts', '--strict-peer-deps', '--no-audit', '--no-fund', '--prefer-offline'], process.env);
     const original = JSON.parse(read(join(app, 'package.json')));
     writeJson(join(app, 'package.json'), { ...original, scripts: { postinstall: 'node -e "throw new Error(\'Lifecycle scripts must not run\')"' } });
     const first = await runSetup();
